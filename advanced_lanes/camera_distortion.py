@@ -1,11 +1,13 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 import pickle
-
 from collections import namedtuple
 from pathlib import Path
 from typing import Tuple
+
+from utility import get_output_folder_path
 
 
 CAMERA_COEFFICIENTS_FILE = "camera_coefficients.pickle"
@@ -89,8 +91,14 @@ def main():
 
     save_camera_coefficients(mtx, dist)
 
-    img = cv2.imread("/home/bajic/Projects/Udacity/projects/CarND-Advanced-Lane-Lines/camera_cal/calibration1.jpg")
+    img = mpimg.imread("/home/bajic/Projects/Udacity/projects/CarND-Advanced-Lane-Lines/camera_cal/calibration1.jpg")
     undistorted = correct_camera_distortion(img, mtx, dist)
+
+    output_path_undistorted = get_output_folder_path().joinpath("calibration1_undistorted.jpg")
+    output_path_distorted = get_output_folder_path().joinpath("calibration1.jpg")
+
+    cv2.imwrite(str(output_path_distorted), img)
+    cv2.imwrite(str(output_path_undistorted), undistorted)
     cv2.imshow("calibration1", undistorted)
     cv2.waitKey(1000)
 
