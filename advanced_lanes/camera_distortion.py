@@ -11,24 +11,22 @@ from utility import get_output_folder_path
 
 
 CAMERA_COEFFICIENTS_FILE = "camera_coefficients.pickle"
-CameraCoefficients = namedtuple("CameraCoefficients", ["matrix", "distortion"])
 
 
 def save_camera_coefficients(mtx, dist):
-    camera_coefficients = CameraCoefficients(mtx, dist)
-
+    camera_coefficients = {"camera_matrix": mtx, "distortion_coeff": dist}
     with open(CAMERA_COEFFICIENTS_FILE, "wb") as file:
         pickle.dump(camera_coefficients, file)
 
 
 def load_camera_precalculated_coefficients():
-    camera_coefficients_path = Path(CAMERA_COEFFICIENTS_FILE)
+    camera_coefficients_path = Path(__file__).parent.joinpath(CAMERA_COEFFICIENTS_FILE)
 
     if camera_coefficients_path.exists():
         camera_coefficients = {}
         with camera_coefficients_path.open("rb") as file:
             camera_coefficients = pickle.load(file)
-        return camera_coefficients.matrix, camera_coefficients.distortion
+        return camera_coefficients["camera_matrix"], camera_coefficients["distortion_coeff"]
     print("Create camera coefficients!")
 
 
