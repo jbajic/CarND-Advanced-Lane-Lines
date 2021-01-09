@@ -89,6 +89,9 @@ def show_tresholding_stages(loaded_img, gradx, grady, mag_binary, dir_binary, co
     plt.show()
 
 def main():
+    """
+    Main function it an example function
+    """
     # test_image_path = get_input_dir_path("test_images").joinpath("test1.jpg")
     test_images = get_input_dir_path("test_images").glob("*.jpg")
     for i, test_image_path in enumerate(test_images):

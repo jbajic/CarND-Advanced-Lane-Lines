@@ -84,6 +84,9 @@ def correct_camera_distortion(img, matrix, dist_coefficients):
 
 
 def main():
+    """
+    Main function it an example function
+    """
     ret, mtx, dist = calculate_camera_coefficients()
     print(f"RMS: {ret}")
     print(f"Camera matrix: {mtx}")
