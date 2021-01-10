@@ -3,7 +3,7 @@ import cv2
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-from utility import get_input_dir_path, get_output_folder_path
+from utility import get_input_path, get_output_folder_path
 
 def abs_sobel_thresh(img, orient="x", sobel_kernel=3, thresh=(0, 255)):
     # Calculate directional gradient
@@ -92,8 +92,8 @@ def main():
     """
     Main function it an example function
     """
-    # test_image_path = get_input_dir_path("test_images").joinpath("test1.jpg")
-    test_images = get_input_dir_path("test_images").glob("*.jpg")
+    # test_image_path = get_input_path("test_images").joinpath("test1.jpg")
+    test_images = get_input_path("test_images").glob("*.jpg")
     for i, test_image_path in enumerate(test_images):
         loaded_img = mpimg.imread(str(test_image_path))
         binary_image = get_binary_image(loaded_img)

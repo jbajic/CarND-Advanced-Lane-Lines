@@ -6,10 +6,10 @@ import numpy as np
 from camera_distortion import load_camera_precalculated_coefficients, correct_camera_distortion
 from threshold import get_binary_image
 from perspective import warp_image
-from utility import get_input_dir_path, get_output_folder_path
+from utility import get_input_path, get_output_folder_path
 
 
-def get_transformed_img(image, show_process=False):
+def transform_image(image, show_process=False):
     camera_matrix, distortion_coeff = load_camera_precalculated_coefficients()
     undistort_image = correct_camera_distortion(image, camera_matrix, distortion_coeff)
 
@@ -23,7 +23,7 @@ def get_transformed_img(image, show_process=False):
         ax[2].imshow(binary_warped, cmap="gray")
         plt.show()
 
-    return binary_warped
+    return M, binary_warped
 
 
 def sliding_window(binary_warped, draw_windows=False):
@@ -116,13 +116,17 @@ def sliding_window(binary_warped, draw_windows=False):
     return leftx, lefty, rightx, righty, out_img
 
 
-def get_polynominals(leftx, lefty, rightx, righty, binary_warped):
-    # We are plotting for x axis not for y
+def get_polynominals(
+    img,
+    leftx,
+    lefty,
+    rightx,
+    righty,
+):
+    ploty = np.linspace(0, img.shape[0] - 1, img.shape[0])
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
 
-    # Generate x and y values for plotting
-    ploty = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
     try:
         left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
         right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
@@ -132,35 +136,87 @@ def get_polynominals(leftx, lefty, rightx, righty, binary_warped):
         left_fitx = 1 * ploty ** 2 + 1 * ploty
         right_fitx = 1 * ploty ** 2 + 1 * ploty
 
+    return left_fitx, right_fitx
+
+
+def draw_polynominals(image, left_fitx, right_fitx, leftx, lefty, rightx, righty, save=False, img_name=""):
     ## Visualization ##
     # Colors in the left and right lane regions
-    binary_warped[lefty, leftx] = [255, 0, 0]
-    binary_warped[righty, rightx] = [0, 0, 255]
+    fig = plt.figure()
+    fig.suptitle("Polynominals")
+    ploty = np.linspace(0, image.shape[0] - 1, image.shape[0])
+    image[lefty, leftx] = [255, 0, 0]
+    image[righty, rightx] = [0, 0, 255]
 
     # Plots the left and right polynomials on the lane lines
-    plt.figure()
+    # plt.figure()
     plt.plot(left_fitx, ploty, color="yellow")
     plt.plot(right_fitx, ploty, color="yellow")
+    if save:
+        plt.savefig(str(get_output_folder_path().joinpath(f"{img_name}_line_detected.jpg")))
+        plt.imshow(image)
 
-    return binary_warped
+
+def measure_curvature_real(img_shape, leftx, rightx):
+    """
+    Calculates the curvature of polynomial functions in meters.
+    """
+    leftx = leftx[::-1]
+    rightx = rightx[::-1]
+    ploty = np.linspace(0, img_shape[0] - 1, img_shape[0])
+    # # Define conversions in x and y from pixels space to meters
+    # ym_per_pix = 30 / 720  # meters per pixel in y dimension
+    # xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
+    ym_per_pix = 25 / 720  # meters per pixel in y dimension
+    xm_per_pix = 3.7 / 800  # meters per pixel in x dimension
+
+    y_eval = np.max(ploty) * ym_per_pix
+    left_fit_cr = np.polyfit(ym_per_pix * ploty, xm_per_pix * leftx, 2)
+    right_fit_cr = np.polyfit(ym_per_pix * ploty, xm_per_pix * rightx, 2)
+
+    left_curverad = np.power((1 + (np.power(2 * left_fit_cr[0] * y_eval + left_fit_cr[1], 2))), 1.5) / np.absolute(
+        2 * left_fit_cr[0]
+    )  ## Implement the calculation of the left line here
+    right_curverad = np.power((1 + (np.power(2 * right_fit_cr[0] * y_eval + right_fit_cr[1], 2))), 1.5) / np.absolute(
+        2 * right_fit_cr[0]
+    )  ## Implement the calculation of the right line here
+
+    return left_curverad, right_curverad
 
 
 def main():
-    test_images = get_input_dir_path("test_images").glob("*.jpg")
+    test_images = get_input_path("test_images").glob("*.jpg")
 
     for i, test_image_path in enumerate(test_images):
-        test_image_path = get_input_dir_path("test_images").joinpath("test1.jpg")
+        test_image_path = get_input_path("test_images").joinpath("test1.jpg")
         image = mpimg.imread(str(test_image_path))
         # plt.imshow(image)
-        img = get_transformed_img(image)
+        warp_matrix, img = transform_image(image)
 
+        # fig, ax = plt.subplots(2)
+        plt.figure()
         leftx, lefty, rightx, righty, out_img = sliding_window(img)
+        plt.imshow(out_img)
 
-        get_polynominals(leftx, lefty, rightx, righty, out_img)
-        plt.imshow(out_img, cmap="gray")
+        left_fitx, right_fitx = get_polynominals(out_img, leftx, lefty, rightx, righty)
+        polynominal_image = np.copy(out_img)
+
+        left_curverad, right_curverad = measure_curvature_real(out_img.shape, left_fitx, right_fitx)
+        print(f"Left line radius: {left_curverad} m, right lane radius: {right_curverad} m")
+
         if i == 0:
-            plt.imsave(str(get_output_folder_path().joinpath(f"{test_image_path.stem}.jpg")), image)
-            plt.savefig(str(get_output_folder_path().joinpath(f"{test_image_path.stem}_line_detected.jpg")))
+            draw_polynominals(
+                polynominal_image,
+                left_fitx,
+                right_fitx,
+                leftx,
+                lefty,
+                rightx,
+                righty,
+                True,
+                img_name=test_image_path.stem,
+            )
+            # plt.imsave(str(get_output_folder_path().joinpath(f"{test_image_path.stem}.jpg")), image)
         plt.show()
         break
 
