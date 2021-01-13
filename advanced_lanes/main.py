@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+from moviepy.editor import VideoFileClip
 
 from camera_distortion import load_camera_precalculated_coefficients, correct_camera_distortion
 from curvature import measure_curvature_real
@@ -9,10 +10,6 @@ from threshold import get_binary_image
 from perspective import warp_image, reverse_warp
 from line_detection import sliding_window, get_polynominals
 from utility import get_input_path, get_output_folder_path
-
-# Import everything needed to edit/save/watch video clips
-# from moviepy.editor import VideoFileClip
-# from IPython.display import HTML
 
 
 def weighted_img(img, initial_img, α=0.8, β=1.0, γ=0.0):
@@ -49,7 +46,24 @@ def draw_lane(warped_img, left_fitx, right_fitx, warp_matrix):
     return newwarp
 
 
-def process_image():
+def process_image(image):
+    # image = mpimg.imread(str(test_image_path))
+    camera_matrix, distortion_coeff = load_camera_precalculated_coefficients()
+    undistort_image = correct_camera_distortion(image, camera_matrix, distortion_coeff)
+
+    binary_image = get_binary_image(undistort_image)
+
+    warped_image, warp_matrix = warp_image(binary_image)
+
+    leftx, lefty, rightx, righty, lane_img = sliding_window(warped_image)
+    left_fitx, right_fitx = get_polynominals(lane_img, leftx, lefty, rightx, righty)
+
+    dewarped_lane_image = draw_lane(warped_image, left_fitx, right_fitx, warp_matrix)
+    merged_img = weighted_img(dewarped_lane_image, image)
+    return merged_img
+
+
+def test_main():
     test_image_path = get_input_path("test_images").joinpath("test1.jpg")
 
     fig, ax = plt.subplots(3, 2)
@@ -70,19 +84,22 @@ def process_image():
     left_fitx, right_fitx = get_polynominals(lane_img, leftx, lefty, rightx, righty)
     ax[2, 0].imshow(lane_img)
 
-    dewarped_image = draw_lane(warped_image, left_fitx, right_fitx, warp_matrix)
-    merged_img = weighted_img(dewarped_image, image)
+    dewarped_lane_image = draw_lane(warped_image, left_fitx, right_fitx, warp_matrix)
+    merged_img = weighted_img(dewarped_lane_image, image)
     ax[2, 1].imshow(merged_img)
 
     plt.show()
 
 
 def main():
-    process_image()
-    # input_video = get_input_path("challenge_video.mp4")
+    # test_main()
+    input_video = str(get_input_path("challenge_video.mp4"))
+    tracked_video = str(get_output_folder_path().joinpath("tracked_video.mp4"))
 
-    # clip1 = VideoFileClip(input_video)
-    # white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
+    clip1 = VideoFileClip(input_video)
+    white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
+
+    white_clip.write_videofile(tracked_video, audio=False)
 
 
 if __name__ == "__main__":
