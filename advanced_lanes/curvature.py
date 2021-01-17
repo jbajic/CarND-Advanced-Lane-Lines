@@ -1,17 +1,16 @@
 import matplotlib.image as mpimg
 import numpy as np
 
-from line_detection import sliding_window, transform_image, get_polynominals
+from line_detection import LaneDetector, transform_image
 from utility import get_input_path
 
 
-def measure_curvature_real(img_shape, leftx, rightx):
+def measure_curvature_real(leftx, rightx, ploty):
     """
     Calculates the curvature of polynomial functions in meters.
     """
     leftx = leftx[::-1]
     rightx = rightx[::-1]
-    ploty = np.linspace(0, img_shape[0] - 1, img_shape[0])
     # # Define conversions in x and y from pixels space to meters
     # ym_per_pix = 30 / 720  # meters per pixel in y dimension
     # xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
@@ -34,18 +33,19 @@ def measure_curvature_real(img_shape, leftx, rightx):
 
 def main():
     test_images = get_input_path("test_images").glob("*.jpg")
+    lane_detector = LaneDetector()
 
     for i, test_image_path in enumerate(test_images):
         test_image_path = get_input_path("test_images").joinpath("test1.jpg")
         image = mpimg.imread(str(test_image_path))
         warp_matrix, img = transform_image(image)
 
-        leftx, lefty, rightx, righty, out_img = sliding_window(img)
+        leftx, lefty, rightx, righty, out_img = lane_detector.sliding_window(img)
 
-        left_fitx, right_fitx = get_polynominals(out_img, leftx, lefty, rightx, righty)
+        left_fitx, right_fitx, plotpy = lane_detector.get_polynominals(out_img, leftx, lefty, rightx, righty)
         polynominal_image = np.copy(out_img)
 
-        left_curverad, right_curverad = measure_curvature_real(out_img.shape, left_fitx, right_fitx)
+        left_curverad, right_curverad = measure_curvature_real(left_fitx, right_fitx, plotpy)
         print(f"Left line radius: {left_curverad} m, right lane radius: {right_curverad} m")
 
         break

@@ -66,9 +66,11 @@ def warp_image(img, show_points=False):
 
 if __name__ == "__main__":
     test_images = get_input_path("test_images").glob("*.jpg")
+    from pathlib import Path
+    test_images = Path("/home/bajic/Pictures/lila/").glob("*.jpg")
 
     for i, test_image_path in enumerate(test_images):
-        test_image_path = get_input_path("test_images").joinpath("test1.jpg")
+        test_image_path = Path("/home/bajic/Pictures/lila/1.jpg")
         img = cv2.imread(str(test_image_path))
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -80,8 +82,8 @@ if __name__ == "__main__":
         ax[1].imshow(warped)
         ax[1].set_title("Warped image")
 
-        if i == 0:
-            plt.imsave(str(get_output_folder_path().joinpath(f"{test_image_path.stem}.jpg")), img)
-            plt.imsave(str(get_output_folder_path().joinpath(f"{test_image_path.stem}_warped.jpg")), warped)
-        break
+        # if i == 0:
+        #     plt.imsave(str(get_output_folder_path().joinpath(f"{test_image_path.stem}.jpg")), img)
+        #     plt.imsave(str(get_output_folder_path().joinpath(f"{test_image_path.stem}_warped.jpg")), warped)
+        # break
     plt.show()
