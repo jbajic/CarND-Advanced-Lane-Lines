@@ -7,7 +7,7 @@ from collections import namedtuple
 from pathlib import Path
 from typing import Tuple
 
-from utility import get_output_folder_path
+from utility import get_output_folder_path, get_input_path
 
 
 CAMERA_COEFFICIENTS_FILE = "camera_coefficients.pickle"
@@ -61,7 +61,7 @@ def calculate_camera_coefficients(show_results=False):
             img_points.append(corners)
 
         if show_results:
-            img = cv2.drawChessboardCorners(img, (9, 6), corners, ret)
+            img = cv2.drawChessboardCorners(img, (nx, ny), corners, ret)
             cv2.imshow(image.name, img)
             cv2.waitKey(500)
     if show_results:
@@ -92,11 +92,14 @@ def main():
 
     save_camera_coefficients(mtx, dist)
 
-    img = mpimg.imread("/home/bajic/Projects/Udacity/projects/CarND-Advanced-Lane-Lines/camera_cal/calibration1.jpg")
+    example_image = get_input_path("test_images").joinpath("test1.jpg")
+    chessboard_image = get_input_path("camera_cal").joinpath("calibration1.jpg")
+
+    img = cv2.imread(str(example_image))
     undistorted = correct_camera_distortion(img, mtx, dist)
 
-    output_path_undistorted = get_output_folder_path().joinpath("calibration1_undistorted.jpg")
-    output_path_distorted = get_output_folder_path().joinpath("calibration1.jpg")
+    output_path_undistorted = get_output_folder_path().joinpath(f"{example_image.stem}_undistorted.jpg")
+    output_path_distorted = get_output_folder_path().joinpath(f"{example_image.stem}_distorted.jpg")
 
     cv2.imwrite(str(output_path_distorted), img)
     cv2.imwrite(str(output_path_undistorted), undistorted)

@@ -31,22 +31,24 @@ def transform_image(image, show_process=False):
 @dataclass
 class LanePolynominal:
     current_fit: List[float] = None
+    last_best_fit: List[float] = None
     previous_fits: List[List[float]] = field(default_factory=list)
-    number_of_wrong_iterations: int = 0
     detected: bool = False
 
     def fit_polynominal(self, lanex, laney, side):
         try:
             self.current_fit = np.polyfit(laney, lanex, 2)
             self.previous_fits.append(self.current_fit)
+            self.detected = True
 
-            best_fit = np.mean(self.previous_fits[-5:], axis=0)
-            self.current_fit = best_fit
+            self.last_best_fit = np.mean(self.previous_fits[-4:], axis=0)
 
         except Exception:
-            if len(self.previous_fits) == 1 or self.number_of_wrong_iterations >= 5:
+            if len(self.previous_fits) == 1:
                 self.previous_fits = []
-                number_of_wrong_iterations = 0
+                self.detected = False
+        return self.last_best_fit
+
 
 class LaneDetector:
     LEFT_LANE = "left"
@@ -56,9 +58,9 @@ class LaneDetector:
         self.left_lane = LanePolynominal()
         self.right_lane = LanePolynominal()
         # Set Hyperparamaters
-        self.nwindows = 20
+        self.nwindows = 30
         # Set the width of the windows +/- margin
-        self.margin = 75
+        self.margin = 100
         # Set minimum number of pixels found to recenter window
         self.minpix = 50
         # Set height of windows - based on nwindows above and image shape
@@ -176,7 +178,7 @@ class LaneDetector:
             & (nonzerox < win_xlane_high)
         ).nonzero()[0]
 
-        if (win_xlane_high > width or win_xlane_low < 0) and counter >= 3:
+        if (win_xlane_high > width or win_xlane_low < 0) and counter >= 5:
             if side == self.LEFT_LANE:
                 self.left_lane_tracker = False
             elif side == self.RIGHT_LANE:
@@ -191,8 +193,8 @@ class LaneDetector:
 
     def _search_around_prior_poly(self, binary_warped, draw_windows=False):
         # Take last polynominals
-        left_fit = self.left_fits[-1]
-        right_fit = self.right_fits[-1]
+        left_fit = self.left_lane.previous_fits[-1]
+        right_fit = self.right_lane.previous_fits[-1]
 
         # Grab activated pixels
         nonzero = binary_warped.nonzero()
@@ -224,21 +226,13 @@ class LaneDetector:
         rightx,
         righty,
     ):
-        self.left_lane.fit_polynominal(leftx, lefty, self.LEFT_LANE)
-        self.right_lane.fit_polynominal(rightx, righty, self.RIGHT_LANE)
+        left_fit = self.left_lane.fit_polynominal(leftx, lefty, self.LEFT_LANE)
+        right_fit = self.right_lane.fit_polynominal(rightx, righty, self.RIGHT_LANE)
         ploty = np.linspace(0, img.shape[0] - 1, img.shape[0])
 
         try:
-            left_fitx = (
-                self.left_lane.current_fit[0] * ploty ** 2
-                + self.left_lane.current_fit[1] * ploty
-                + self.left_lane.current_fit[2]
-            )
-            right_fitx = (
-                self.right_lane.current_fit[0] * ploty ** 2
-                + self.right_lane.current_fit[1] * ploty
-                + self.right_lane.current_fit[2]
-            )
+            left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
+            right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
         except TypeError:
             # Avoids an error if `left` and `right_fit` are still none or incorrect
             print("The function failed to fit a line!")
@@ -252,12 +246,10 @@ def main():
     test_images = get_input_path("test_images").glob("*.jpg")
     from pathlib import Path
 
-    # test_images = Path("/home/bajic/Pictures/lila/").glob("*.jpg")
     lane_detector = LaneDetector()
 
     for i, test_image_path in enumerate(test_images):
-        test_image_path = Path("/home/bajic/Pictures/lila/1.jpg")
-        # test_image_path = get_input_path("test_images").joinpath("test1.jpg")
+        test_image_path = get_input_path("test_images").joinpath("test1.jpg")
         image = mpimg.imread(str(test_image_path))
         plt.figure
         plt.imshow(image)
@@ -270,7 +262,7 @@ def main():
         fig.suptitle("Polylines")
         plt.imshow(out_img)
 
-        # plt.imsave(str(get_output_folder_path().joinpath(f"{test_image_path.stem}.jpg")), image)
+        plt.imsave(str(get_output_folder_path().joinpath(f"{test_image_path.stem}_lanes.jpg")), image)
         plt.show()
         break
 

@@ -5,30 +5,52 @@ from line_detection import LaneDetector, transform_image
 from utility import get_input_path
 
 
-def measure_curvature_real(leftx, rightx, ploty):
-    """
-    Calculates the curvature of polynomial functions in meters.
-    """
-    leftx = leftx[::-1]
-    rightx = rightx[::-1]
-    # # Define conversions in x and y from pixels space to meters
-    # ym_per_pix = 30 / 720  # meters per pixel in y dimension
-    # xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
+class ConversionRate:
     ym_per_pix = 25 / 720  # meters per pixel in y dimension
-    xm_per_pix = 3.7 / 800  # meters per pixel in x dimension
+    xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
 
-    y_eval = np.max(ploty) * ym_per_pix
-    left_fit_cr = np.polyfit(ym_per_pix * ploty, xm_per_pix * leftx, 2)
-    right_fit_cr = np.polyfit(ym_per_pix * ploty, xm_per_pix * rightx, 2)
 
-    left_curverad = np.power((1 + (np.power(2 * left_fit_cr[0] * y_eval + left_fit_cr[1], 2))), 1.5) / np.absolute(
-        2 * left_fit_cr[0]
-    )  ## Implement the calculation of the left line here
-    right_curverad = np.power((1 + (np.power(2 * right_fit_cr[0] * y_eval + right_fit_cr[1], 2))), 1.5) / np.absolute(
-        2 * right_fit_cr[0]
-    )  ## Implement the calculation of the right line here
+class RoadAndCar:
+    def __init__(self, leftx, rightx, ploty):
+        leftx = leftx[::-1]
+        rightx = rightx[::-1]
 
-    return left_curverad, right_curverad
+        self.y_eval = np.max(ploty) * ConversionRate.ym_per_pix
+        self.left_fit_cr = np.polyfit(ConversionRate.ym_per_pix * ploty, ConversionRate.xm_per_pix * leftx, 2)
+        self.right_fit_cr = np.polyfit(ConversionRate.ym_per_pix * ploty, ConversionRate.xm_per_pix * rightx, 2)
+
+    def measure_curvature_real(self):
+        """
+        Calculates the curvature of polynomial functions in meters.
+        """
+        left_curverad = np.power(
+            (1 + (np.power(2 * self.left_fit_cr[0] * self.y_eval + self.left_fit_cr[1], 2))), 1.5
+        ) / np.absolute(
+            2 * self.left_fit_cr[0]
+        )  ## Implement the calculation of the left line here
+        right_curverad = np.power(
+            (1 + (np.power(2 * self.right_fit_cr[0] * self.y_eval + self.right_fit_cr[1], 2))), 1.5
+        ) / np.absolute(
+            2 * self.right_fit_cr[0]
+        )  ## Implement the calculation of the right line here
+
+        return left_curverad, right_curverad
+
+    def get_car_distance_text(self, img):
+        middle_of_image = img.shape[1] / 2
+        car_position = middle_of_image * ConversionRate.xm_per_pix
+
+        height = img.shape[0] * ConversionRate.ym_per_pix
+        left_line_base = self.left_fit_cr[0] * height ** 2 + self.left_fit_cr[1] * height + self.left_fit_cr[0]
+        right_line_base = self.right_fit_cr[0] * height ** 2 + self.right_fit_cr[1] * height + self.right_fit_cr[0]
+        lane_mid = (left_line_base + right_line_base) / 2
+
+        dist_from_center = lane_mid - car_position
+        if dist_from_center >= 0:
+            center_text = "{} meters left of center".format(round(dist_from_center, 2))
+        else:
+            center_text = "{} meters right of center".format(round(-dist_from_center, 2))
+        return center_text
 
 
 def main():

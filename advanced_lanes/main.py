@@ -5,12 +5,13 @@ import matplotlib.image as mpimg
 from moviepy.editor import VideoFileClip
 
 from camera_distortion import load_camera_precalculated_coefficients, correct_camera_distortion
-from curvature import measure_curvature_real
+from curvature import ConversionRate, RoadAndCar
 from threshold import get_binary_image
 from perspective import warp_image, reverse_warp
 from line_detection import LaneDetector
 from utility import get_input_path, get_output_folder_path
 
+curvature_radiuses = []
 
 def weighted_img(img, initial_img, α=1.0, β=1.0, γ=0.0):
     """
@@ -46,9 +47,7 @@ def draw_lane(warped_img, left_fitx, right_fitx, ploty, warp_matrix):
     return newwarp
 
 
-def process_image(image, lane_detector):
-    # image = mpimg.imread(str(test_image_path))
-    camera_matrix, distortion_coeff = load_camera_precalculated_coefficients()
+def process_image(image, lane_detector, camera_matrix, distortion_coeff):
     undistort_image = correct_camera_distortion(image, camera_matrix, distortion_coeff)
 
     binary_image = get_binary_image(undistort_image)
@@ -60,6 +59,24 @@ def process_image(image, lane_detector):
 
     # dewarped_lane_image = reverse_warp(out_img, warp_matrix)
     merged_img = weighted_img(dewarped_lane_image, image, β=0.8)
+
+    road_and_car_parameters = RoadAndCar(left_fitx, right_fitx, ploty)
+    left_curverad, right_curverad = road_and_car_parameters.measure_curvature_real()
+
+    curvature_radius = round(np.mean([left_curverad, right_curverad]), 0)
+    if len(curvature_radiuses) > 10:
+        curvature_radius_means = np.mean(curvature_radiuses)
+        if curvature_radius < curvature_radius_means * 1.5 and curvature_radius > curvature_radius_means * 0.25:
+            curvature_radiuses.append(curvature_radius)
+        else:
+            curvature_radius = curvature_radius_means
+        curvature_radiuses.pop(1)
+
+    curvature_text = f"Radius of Curvature = {curvature_radius} m"
+    cat_distance_text = road_and_car_parameters.get_car_distance_text(merged_img)
+
+    cv2.putText(merged_img, curvature_text, (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    cv2.putText(merged_img, cat_distance_text, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
     return merged_img
 
 
@@ -67,6 +84,7 @@ def test_main():
     # test_image_path = get_input_path("test_images").joinpath("test1.jpg")
     # test_images = get_input_path("test_images").glob("*.jpg")
     from pathlib import Path
+
     test_images = Path("/home/bajic/Pictures/lila/").glob("*.jpg")
     lane_detector = LaneDetector()
 
@@ -99,12 +117,15 @@ def test_main():
 
 def main():
     # test_main()
-    input_video = str(get_input_path("challenge_video.mp4"))
+    input_video = str(get_input_path("project_video.mp4"))
     tracked_video = str(get_output_folder_path().joinpath("tracked_video.mp4"))
 
+    camera_matrix, distortion_coeff = load_camera_precalculated_coefficients()
     lane_detector = LaneDetector()
     clip1 = VideoFileClip(input_video)
-    white_clip = clip1.fl_image(lambda image: process_image(image, lane_detector))  # NOTE: this function expects color images!!
+    white_clip = clip1.fl_image(
+        lambda image: process_image(image, lane_detector, camera_matrix, distortion_coeff)
+    )  # NOTE: this function expects color images!!
 
     white_clip.write_videofile(tracked_video, audio=False)
 

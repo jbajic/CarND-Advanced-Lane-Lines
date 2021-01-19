@@ -5,6 +5,7 @@ import matplotlib.image as mpimg
 
 from utility import get_input_path, get_output_folder_path
 
+
 def abs_sobel_thresh(img, orient="x", sobel_kernel=3, thresh=(0, 255)):
     # Calculate directional gradient
     if orient == "x":
@@ -51,20 +52,32 @@ def dir_threshold(image, sobel_kernel=3, thresh=(0, np.pi / 2)):
     dir_binary[(sobel_direction > thresh[0]) & (sobel_direction < thresh[1])] = 1
     return dir_binary
 
-def get_binary_image(img):
-    hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
-    binary_image_saturation = hls[:, :, 2]
-    # grayscale = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
-    gradx = abs_sobel_thresh(binary_image_saturation, orient="x", sobel_kernel=9, thresh=(20, 100))
-    grady = abs_sobel_thresh(binary_image_saturation, orient="y", sobel_kernel=9, thresh=(20, 100))
+def get_binary_image(img):
+    thresh_red = (200, 255)
+    red = img[:, :, 0]
+    red_binary = np.zeros_like(red)
+    red_binary[(red > thresh_red[0]) & (red <= thresh_red[1])] = 1
+
+    hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS).astype(np.float)
+    binary_image_lightness = hls[:, :, 1]
+    binary_image_saturation = hls[:, :, 2]
+
+    gradx = abs_sobel_thresh(binary_image_lightness, orient="x", sobel_kernel=15, thresh=(20, 100))
+    grady = abs_sobel_thresh(binary_image_saturation, orient="y", sobel_kernel=15, thresh=(20, 100))
+
     mag_binary = mag_thresh(binary_image_saturation, sobel_kernel=9, mag_thresh=(30, 100))
     dir_binary = dir_threshold(binary_image_saturation, sobel_kernel=15, thresh=(0.7, 1.3))
     combined_binary = np.zeros_like(dir_binary)
     # combined_binary[((gradx == 1) & (dir_binary == 1)) | ((mag_binary == 1) & (grady == 1))] = 1
-    combined_binary[((gradx == 1) & (dir_binary == 1) | ((mag_binary == 1) & (grady == 1)))] = 1
+    # combined_binary[((gradx == 1) | (grady == 1)) & (dir_binary == 1)] = 1
+    # combined_binary[((gradx == 1) & (mag_binary == 1)) | (dir_binary == 1)] = 1
+    # combined_binary[((grady == 1) | (mag_binary == 1)) & ((gradx == 1) | (mag_binary == 1)) & (dir_binary == 1)] = 1
+    # combined_binary[((gradx == 1) & (grady == 1)) & ((mag_binary == 1) & (dir_binary == 1))] = 1
 
+    combined_binary[(red_binary == 1) & (gradx == 1) | ((mag_binary == 1) & (grady == 1))] = 1 # Best so far in the video
     return combined_binary
+
 
 def show_tresholding_stages(loaded_img, gradx, grady, mag_binary, dir_binary, combined_binary):
     figure, axes = plt.subplots(3, 2)
@@ -88,13 +101,16 @@ def show_tresholding_stages(loaded_img, gradx, grady, mag_binary, dir_binary, co
     axes[2, 1].set_title("Combined gradients")
     plt.show()
 
+
 def main():
     """
     Main function it an example function
     """
-    # test_image_path = get_input_path("test_images").joinpath("test1.jpg")
     test_images = get_input_path("test_images").glob("*.jpg")
+
     for i, test_image_path in enumerate(test_images):
+        # loaded_img = mpimg.imread(str(test_image_path))
+        # test_image_path = get_input_path("output_images").joinpath("test1.jpg")
         loaded_img = mpimg.imread(str(test_image_path))
         binary_image = get_binary_image(loaded_img)
 
@@ -106,7 +122,10 @@ def main():
         ax[1].set_title("Binary Image")
         if i == 0:
             plt.imsave(str(get_output_folder_path().joinpath(f"{test_image_path.stem}.jpg")), loaded_img)
-            plt.imsave(str(get_output_folder_path().joinpath(f"{test_image_path.stem}_binary.jpg")), binary_image, cmap="gray")
+            plt.imsave(
+                str(get_output_folder_path().joinpath(f"{test_image_path.stem}_binary.jpg")), binary_image, cmap="gray"
+            )
+        break
     plt.show()
 
 
