@@ -39,13 +39,14 @@ def draw_lane(warped_img, left_fitx, right_fitx, ploty, warp_matrix):
 
     # Draw the lane onto the warped blank image
     cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
-    cv2.polylines(color_warp, pts_left, True, (255, 0, 0), thickness=30)
-    cv2.polylines(color_warp, pts_right, True, (255, 0, 0), thickness=30)
+    # cv2.polylines(color_warp, pts_left, True, (255, 0, 0), thickness=30)
+    # cv2.polylines(color_warp, pts_right, True, (255, 0, 0), thickness=30)
     # Reverse warp
     newwarp = reverse_warp(color_warp, warp_matrix)
 
     return newwarp
 
+curvature_radiuses = []
 
 def process_image(image, lane_detector, camera_matrix, distortion_coeff):
     undistort_image = correct_camera_distortion(image, camera_matrix, distortion_coeff)
@@ -63,14 +64,18 @@ def process_image(image, lane_detector, camera_matrix, distortion_coeff):
     road_and_car_parameters = RoadAndCar(left_fitx, right_fitx, ploty)
     left_curverad, right_curverad = road_and_car_parameters.measure_curvature_real()
 
+    global curvature_radiuses
     curvature_radius = round(np.mean([left_curverad, right_curverad]), 0)
     if len(curvature_radiuses) > 10:
-        curvature_radius_means = np.mean(curvature_radiuses)
-        if curvature_radius < curvature_radius_means * 1.5 and curvature_radius > curvature_radius_means * 0.25:
+        curvature_radius_mean = np.mean(curvature_radiuses)
+        if curvature_radius < curvature_radius_mean * 3:
             curvature_radiuses.append(curvature_radius)
+            curvature_radiuses.pop(0)
         else:
-            curvature_radius = curvature_radius_means
-        curvature_radiuses.pop(1)
+            curvature_radius = round(curvature_radius_mean, 0)
+        curvature_radius = round(np.mean(curvature_radiuses), 0)
+    else:
+        curvature_radiuses.append(curvature_radius)
 
     curvature_text = f"Radius of Curvature = {curvature_radius} m"
     cat_distance_text = road_and_car_parameters.get_car_distance_text(merged_img)
